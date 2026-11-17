@@ -767,6 +767,20 @@ static int uvc_parse_streaming(struct uvc_device *dev,
 			"device %d videostreaming interface %d has %u bytes of trailing descriptor garbage\n",
 			dev->udev->devnum, alts->desc.bInterfaceNumber, buflen);
 
+	/*
+	 * All the format descriptors may have been skipped, for instance
+	 * because the device advertises formats that are known to be broken.
+	 * Don't expose a stream without any format to userspace, and don't
+	 * fail the whole device either, just ignore this streaming interface.
+	 */
+	if (streaming->nformats == 0) {
+		uvc_dbg(dev, DESCR,
+			"device %d videostreaming interface %d has no usable formats\n",
+			dev->udev->devnum, alts->desc.bInterfaceNumber);
+		ret = -EINVAL;
+		goto error;
+	}
+
 	/* Parse the alternate settings to find the maximum bandwidth. */
 	for (i = 0; i < intf->num_altsetting; ++i) {
 		struct usb_host_endpoint *ep;
