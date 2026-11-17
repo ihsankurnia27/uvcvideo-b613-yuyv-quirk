@@ -381,6 +381,21 @@ static int uvc_parse_format(struct uvc_device *dev,
 		format->bpp = buffer[21];
 
 		/*
+		 * The SunplusIT integrated IR camera (04f2:b613) advertises an
+		 * uncompressed YUYV format in which it sends 10-bit packed
+		 * sensor data with the IR emitter turned off, resulting in dark
+		 * noisy frames for applications that prefer it over MJPEG.
+		 * Skip the format to let userspace negotiate the working MJPEG
+		 * mode instead.
+		 */
+		if ((dev->quirks & UVC_QUIRK_DROP_YUYV) &&
+		    format->fcc == V4L2_PIX_FMT_YUYV) {
+			dev_info(&streaming->intf->dev,
+				 "Dropping broken YUYV format\n");
+			return 0;
+		}
+
+		/*
 		 * Some devices report a format that doesn't match what they
 		 * really send.
 		 */
@@ -2752,6 +2767,15 @@ static const struct usb_device_id uvc_ids[] = {
 	  .bInterfaceSubClass	= 1,
 	  .bInterfaceProtocol	= 0,
 	  .driver_info		= UVC_INFO_QUIRK(UVC_QUIRK_RESTRICT_FRAME_RATE) },
+	/* SunplusIT Integrated IR Camera (Lenovo ThinkPad T480) */
+	{ .match_flags		= USB_DEVICE_ID_MATCH_DEVICE
+				| USB_DEVICE_ID_MATCH_INT_INFO,
+	  .idVendor		= 0x04f2,
+	  .idProduct		= 0xb613,
+	  .bInterfaceClass	= USB_CLASS_VIDEO,
+	  .bInterfaceSubClass	= 1,
+	  .bInterfaceProtocol	= 0,
+	  .driver_info		= UVC_INFO_QUIRK(UVC_QUIRK_DROP_YUYV) },
 	/* Alcor Micro AU3820 (Future Boy PC USB Webcam) */
 	{ .match_flags		= USB_DEVICE_ID_MATCH_DEVICE
 				| USB_DEVICE_ID_MATCH_INT_INFO,
